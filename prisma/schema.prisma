@@ -1,0 +1,252 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// -------------------------------------------------
+//  ENUMS
+// -------------------------------------------------
+
+enum SafetyLevel {
+  HIGH
+  MEDIUM
+  LOW
+  VERY_HIGH
+}
+
+enum SocEstimationMethod {
+  COULOMB_COUNTING
+  EKF
+  LSTM
+}
+
+enum Role {
+  ADMIN
+  USER
+}
+
+enum AuthProvider {
+  LOCAL
+  GOOGLE
+  MICROSOFT
+}
+
+enum DeviceStatus {
+  ONLINE
+  OFFLINE
+  WARNING
+}
+
+enum AlertSeverity {
+  CRITICAL
+  WARNING
+  INFO
+}
+
+enum AlertType {
+  HIGH_TEMPERATURE
+  LOW_BATTERY
+  CELL_IMBALANCE
+  CONNECTION_LOST
+  OVERVOLTAGE
+  UNDERVOLTAGE
+}
+
+// -------------------------------------------------
+//  MODELS
+// -------------------------------------------------
+
+model User {
+  id              String       @id @default(uuid())
+  fullName        String
+  email           String       @unique
+  phoneNumber     String?      @unique
+  password        String?
+  profilePicture  String?
+  role            Role         @default(USER)
+  authProvider    AuthProvider @default(LOCAL)
+  providerId      String?
+  isEmailVerified Boolean      @default(false)
+  isActive        Boolean      @default(true)
+  acceptedTerms   Boolean      @default(false)
+
+  // Auth tokens
+  refreshToken     String?
+  loginAttempts    Int       @default(0)
+  lockUntil        DateTime?
+  resetToken       String?
+  resetTokenExpiry DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  alerts    Alert[]   @relation("ResolvedAlerts")
+  auditLogs AuditLog[]
+  devices   Device[]  @relation("UserDevices")
+}
+
+model BatteryChemistry {
+  id             String @id @default(uuid())
+  chemistryName  String @unique
+  nominalVoltage Float
+  maxVoltage     Float
+  minVoltage     Float
+  energyDensity  Int
+  cycleLife      Int
+  safetyLevel    String
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  configs ChemistryConfig[]
+}
+
+model ChemistryConfig {
+  id String @id @default(uuid())
+
+  vehicleModel           String
+  chargeCutoffVoltage    Float
+  dischargeCutoffVoltage Float
+  temperatureLimit       Float
+  firmwareVersion        String
+
+  isActive            Boolean             @default(true)
+  socEstimationMethod SocEstimationMethod?
+
+  createdAt DateTime @default(now())
+
+  chemistryId String
+  chemistry   BatteryChemistry @relation(fields: [chemistryId], references: [id])
+}
+
+model ThermalSafety {
+  id            Int    @id @default(autoincrement())
+  parameterName String
+  thresholdValue Float
+  actionName    String
+
+  configs ThermalSafetyConfig[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model ThermalSafetyConfig {
+  id Int @id @default(autoincrement())
+
+  vehicleName     String
+  customThreshold Float
+  coolingEnabled  Boolean @default(false)
+  firmwareVersion String?
+
+  thermalSafetyId Int
+  thermalSafety   ThermalSafety @relation(fields: [thermalSafetyId], references: [id])
+
+  otpThreshold      Float?
+  utpThreshold      Float?
+  riseRateThreshold Float?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Device {
+  id               String       @id @default(uuid())
+  deviceName       String
+  deviceType       String
+  serialNumber     String       @unique
+  status           DeviceStatus @default(ONLINE)
+  totalCapacityKWh Float
+  latitude         Float?
+  longitude        Float?
+  locationName     String?
+  createdAt        DateTime     @default(now())
+  updatedAt        DateTime     @updatedAt
+
+  telemetry   Telemetry[]
+  batteryPack BatteryPack?
+  alerts      Alert[]
+
+  userId       String?
+  user         User?        @relation("UserDevices", fields: [userId], references: [id])
+
+  @@index([status])
+}
+
+model Telemetry {
+  id           String   @id @default(uuid())
+  deviceId     String
+  device       Device   @relation(fields: [deviceId], references: [id])
+  soc          Float
+  voltage      Float
+  current      Float
+  temperature  Float
+  capacity     Float
+  recordedAt   DateTime @default(now())
+  speed        Float?
+  acceleration Float?
+
+  @@index([deviceId, recordedAt])
+  @@index([recordedAt])
+}
+
+model BatteryPack {
+  id       String @id @default(uuid())
+  deviceId String @unique
+  device   Device @relation(fields: [deviceId], references: [id])
+
+  totalRows    Int
+  totalColumns Int
+
+  capacityFade      Float?
+  resistanceRise    Float?
+  coulombEfficiency Float?
+  icaMetrics        Json?
+
+  cells CellTelemetry[]
+}
+
+model CellTelemetry {
+  id          String      @id @default(uuid())
+  cellId      String
+  packId      String
+  pack        BatteryPack @relation(fields: [packId], references: [id])
+  rowIndex    Int
+  colIndex    Int
+  voltage     Float
+  temperature Float
+  soc         Float
+  recordedAt  DateTime    @default(now())
+}
+
+model Alert {
+  id        String        @id @default(uuid())
+  deviceId  String
+  device    Device        @relation(fields: [deviceId], references: [id])
+  alertType AlertType
+  severity  AlertSeverity
+  message   String
+  isResolved Boolean      @default(false)
+  resolvedAt DateTime?
+  createdAt  DateTime     @default(now())
+
+  resolvedById String?
+  resolvedBy   User?   @relation("ResolvedAlerts", fields: [resolvedById], references: [id])
+}
+
+model AuditLog {
+  id        String   @id @default(uuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  action    String
+  entity    String
+  entityId  String
+  details   Json
+  ipAddress String?
+  createdAt DateTime @default(now())
+}

@@ -1,0 +1,81 @@
+import prisma from "../prisma/prisma";
+import { DeviceStatus, Prisma } from "@prisma/client";
+
+export interface DeviceFilters {
+  status?: DeviceStatus;
+  deviceType?: string;
+  search?: string;
+}
+
+export class DeviceRepository {
+  // ---------- List with filters + pagination ----------
+  async findAll(
+    filters: DeviceFilters,
+    skip: number,
+    take: number
+  ) {
+    const where: Prisma.DeviceWhereInput = {};
+    if (filters.status) where.status = filters.status;
+    if (filters.deviceType) where.deviceType = { equals: filters.deviceType, mode: "insensitive" };
+    if (filters.search) where.deviceName = { contains: filters.search, mode: "insensitive" };
+
+    const [devices, total] = await Promise.all([
+      prisma.device.findMany({ where, skip, take, orderBy: { createdAt: "desc" } }),
+      prisma.device.count({ where }),
+    ]);
+    return { devices, total };
+  }
+
+  // ---------- Single device ----------
+  async findById(id: string) {
+    return prisma.device.findUnique({ where: { id } });
+  }
+
+  async findBySerialNumber(serialNumber: string) {
+    return prisma.device.findUnique({ where: { serialNumber } });
+  }
+
+  // ---------- Create ----------
+  async create(data: Prisma.DeviceCreateInput) {
+    return prisma.device.create({ data });
+  }
+
+  // ---------- Update ----------
+  async update(id: string, data: Prisma.DeviceUpdateInput) {
+    return prisma.device.update({ where: { id }, data });
+  }
+
+  // ---------- Delete ----------
+  async delete(id: string) {
+    return prisma.device.delete({ where: { id } });
+  }
+
+  // ---------- Patch status ----------
+  async updateStatus(id: string, status: DeviceStatus) {
+    return prisma.device.update({ where: { id }, data: { status } });
+  }
+
+  // ---------- Map endpoint (only devices with coords) ----------
+  async findWithCoordinates() {
+    return prisma.device.findMany({
+      where: {
+        latitude: { not: null },
+        longitude: { not: null },
+      },
+      select: {
+        id: true,
+        deviceName: true,
+        latitude: true,
+        longitude: true,
+        locationName: true,
+        status: true,
+        // latest telemetry — nested subquery via Prisma relation ordering
+        telemetry: {
+          orderBy: { recordedAt: "desc" },
+          take: 1,
+          select: { soc: true },
+        },
+      },
+    });
+  }
+}
