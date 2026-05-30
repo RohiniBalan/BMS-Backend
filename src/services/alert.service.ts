@@ -28,15 +28,27 @@ export class AlertService {
   }
 
   // ---------- Recent ----------
-  async getRecent(limitStr?: string) {
-    const limit = Math.min(50, Math.max(1, parseInt(limitStr || "10", 10)));
-    return repo.findRecent(limit);
-  }
+  // async getRecent(limitStr?: string) {
+  //   const limit = Math.min(50, Math.max(1, parseInt(limitStr || "10", 10)));
+  //   return repo.findRecent(limit);
+  // }
+
+  async getRecent(limitStr?: string, user?: { userId: string; role: string }) {
+  const limit = Math.min(50, Math.max(1, parseInt(limitStr || "10", 10)));
+  return repo.findRecent(limit, user);
+}
 
   // ---------- Summary ----------
-  async getSummary(deviceId?: string) {
-    return repo.getSummary(deviceId);
-  }
+  // async getSummary(deviceId?: string) {
+  //   return repo.getSummary(deviceId);
+  // }
+
+  async getSummary(
+  deviceId?: string,
+  user?: { userId: string; role: string }
+) {
+  return repo.getSummary(deviceId, user);
+}
 
   // ---------- Create (Manual/Webhook) ----------
   async createAlert(body: {

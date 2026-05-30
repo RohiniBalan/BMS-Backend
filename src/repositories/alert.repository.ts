@@ -42,37 +42,99 @@ export class AlertRepository {
   }
 
   // ---------- Find recent ----------
-  async findRecent(limit: number) {
-    return prisma.alert.findMany({
-      take: limit,
-      orderBy: { createdAt: "desc" },
-      include: { device: { select: { deviceName: true } } },
-    });
+  // async findRecent(limit: number) {
+  //   return prisma.alert.findMany({
+  //     take: limit,
+  //     orderBy: { createdAt: "desc" },
+  //     include: { device: { select: { deviceName: true } } },
+  //   });
+  // }
+
+  async findRecent(
+  limit: number,
+  user?: { userId: string; role: string }
+) {
+  const where: Prisma.AlertWhereInput = {};
+
+  // 👇 USER FILTER (IMPORTANT)
+  if (user?.role !== "ADMIN") {
+    where.device = {
+      userId: user.userId,
+    };
   }
+
+  return prisma.alert.findMany({
+    where,
+    take: limit,
+    orderBy: { createdAt: "desc" },
+    include: {
+      device: { select: { deviceName: true } },
+    },
+  });
+}
 
   // ---------- Summary (Counts by severity) ----------
-  async getSummary(deviceId?: string) {
-    const where: Prisma.AlertWhereInput = { isResolved: false };
-    if (deviceId) where.deviceId = deviceId;
+  // async getSummary(deviceId?: string) {
+  //   const where: Prisma.AlertWhereInput = { isResolved: false };
+  //   if (deviceId) where.deviceId = deviceId;
 
-    const groupBy = await prisma.alert.groupBy({
-      by: ["severity"],
-      where,
-      _count: { severity: true },
-    });
+  //   const groupBy = await prisma.alert.groupBy({
+  //     by: ["severity"],
+  //     where,
+  //     _count: { severity: true },
+  //   });
 
-    const summary = {
-      [AlertSeverity.CRITICAL]: 0,
-      [AlertSeverity.WARNING]: 0,
-      [AlertSeverity.INFO]: 0,
+  //   const summary = {
+  //     [AlertSeverity.CRITICAL]: 0,
+  //     [AlertSeverity.WARNING]: 0,
+  //     [AlertSeverity.INFO]: 0,
+  //   };
+
+  //   groupBy.forEach((group) => {
+  //     summary[group.severity] = group._count.severity;
+  //   });
+
+  //   return summary;
+  // }
+
+  async getSummary(
+  deviceId?: string,
+  user?: { userId: string; role: string }
+) {
+  const where: Prisma.AlertWhereInput = {
+    isResolved: false,
+  };
+
+  // USER restriction
+  if (user?.role !== "ADMIN") {
+    where.device = {
+      userId: user.userId,
     };
-
-    groupBy.forEach((group) => {
-      summary[group.severity] = group._count.severity;
-    });
-
-    return summary;
   }
+
+  // optional device filter
+  if (deviceId) {
+    where.deviceId = deviceId;
+  }
+
+  const groupBy = await prisma.alert.groupBy({
+    by: ["severity"],
+    where,
+    _count: { severity: true },
+  });
+
+  const summary = {
+    [AlertSeverity.CRITICAL]: 0,
+    [AlertSeverity.WARNING]: 0,
+    [AlertSeverity.INFO]: 0,
+  };
+
+  groupBy.forEach((group) => {
+    summary[group.severity] = group._count.severity;
+  });
+
+  return summary;
+}
 
   // ---------- Create ----------
   async create(data: Prisma.AlertCreateInput) {

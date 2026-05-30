@@ -17,5 +17,9 @@ router.use(authorize("ADMIN", "USER"));
 router.get("/soc-trend", validate(trendSchema), ctrl.getSocTrend.bind(ctrl));
 router.get("/temperature-trend", validate(trendSchema), ctrl.getTemperatureTrend.bind(ctrl));
 router.get("/fleet-summary", validate(fleetSummarySchema), ctrl.getFleetSummary.bind(ctrl));
+router.get(
+  "/health-popup",
+  ctrl.getHealthPopupData.bind(ctrl)
+);
 
 export default router;

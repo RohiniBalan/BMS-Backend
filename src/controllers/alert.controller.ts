@@ -15,20 +15,50 @@ export class AlertController {
   }
 
   // GET /alerts/recent
+  // async getRecent(req: Request, res: Response, next: NextFunction) {
+  //   try {
+  //     const alerts = await service.getRecent(req.query.limit as string);
+  //     return sendSuccess(res, "Recent alerts retrieved", alerts);
+  //   } catch (err) { next(err); }
+  // }
+
   async getRecent(req: Request, res: Response, next: NextFunction) {
     try {
-      const alerts = await service.getRecent(req.query.limit as string);
+      const userId = req.user!.id;
+const role = req.user!.role;
+
+const alerts = await service.getRecent(
+  req.query.limit as string,
+  { userId, role }
+);
       return sendSuccess(res, "Recent alerts retrieved", alerts);
     } catch (err) { next(err); }
   }
 
+
   // GET /alerts/summary
-  async getSummary(req: Request, res: Response, next: NextFunction) {
-    try {
-      const summary = await service.getSummary(req.query.deviceId as string);
-      return sendSuccess(res, "Alert summary retrieved", summary);
-    } catch (err) { next(err); }
+  // async getSummary(req: Request, res: Response, next: NextFunction) {
+  //   try {
+  //     const summary = await service.getSummary(req.query.deviceId as string);
+  //     return sendSuccess(res, "Alert summary retrieved", summary);
+  //   } catch (err) { next(err); }
+  // }
+
+  async getSummary(req: AuthRequest, res: Response, next: NextFunction) {
+  try {
+    const userId = req.user!.id;
+    const role = req.user!.role;
+
+    const summary = await service.getSummary(
+      req.query.deviceId as string,
+      { userId, role }
+    );
+
+    return sendSuccess(res, "Alert summary retrieved", summary);
+  } catch (err) {
+    next(err);
   }
+}
 
   // POST /alerts
   async createAlert(req: Request, res: Response, next: NextFunction) {

@@ -27,4 +27,8 @@ export class AnalyticsService {
     // Basic alias to getReportData
     return repo.getReportData(deviceId, from, to);
   }
+
+  async getHealthPopupData(user?: { id: string; role: string }) {
+  return repo.getHealthPopupData(user);
+}
 }

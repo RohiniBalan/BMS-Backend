@@ -77,7 +77,7 @@ export class AuthService {
     const hashedRefresh = crypto.createHash("sha256").update(rawRefresh).digest("hex");
     await this.repo.updateRefreshToken(user.id, hashedRefresh);
 
-    return { user: { id: user.id, email: user.email, role: user.role }, accessToken, refreshToken: rawRefresh };
+    return { user: { id: user.id, fullName: user.fullName, email: user.email, role: user.role }, accessToken, refreshToken: rawRefresh };
   }
 
   // ---------------------------------------------------------------

@@ -9,7 +9,12 @@ export class DeviceController {
   // GET /devices
   async getDevices(req: Request, res: Response, next: NextFunction) {
     try {
-      const { devices, pagination } = await service.getDevices(req.query as any);
+      const user = (req as any).user;
+
+const { devices, pagination } = await service.getDevices(
+  req.query as any,
+  user
+);
       return sendSuccess(res, "Devices retrieved", devices, pagination);
     } catch (err) { next(err); }
   }

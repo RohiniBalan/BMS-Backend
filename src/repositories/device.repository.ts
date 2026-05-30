@@ -5,6 +5,7 @@ export interface DeviceFilters {
   status?: DeviceStatus;
   deviceType?: string;
   search?: string;
+  userId?: string;
 }
 
 export class DeviceRepository {
@@ -18,11 +19,26 @@ export class DeviceRepository {
     if (filters.status) where.status = filters.status;
     if (filters.deviceType) where.deviceType = { equals: filters.deviceType, mode: "insensitive" };
     if (filters.search) where.deviceName = { contains: filters.search, mode: "insensitive" };
-
+    if (filters.userId) where.userId = filters.userId;
     const [devices, total] = await Promise.all([
-      prisma.device.findMany({ where, skip, take, orderBy: { createdAt: "desc" } }),
-      prisma.device.count({ where }),
-    ]);
+  prisma.device.findMany({
+    where,
+    skip,
+    take,
+    orderBy: { createdAt: "desc" },
+
+    include: {
+      telemetry: {
+        orderBy: {
+          recordedAt: "desc",
+        },
+        take: 1,
+      },
+    },
+  }),
+
+  prisma.device.count({ where }),
+]);
     return { devices, total };
   }
 
