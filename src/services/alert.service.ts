@@ -28,21 +28,12 @@ export class AlertService {
   }
 
   // ---------- Recent ----------
-  // async getRecent(limitStr?: string) {
-  //   const limit = Math.min(50, Math.max(1, parseInt(limitStr || "10", 10)));
-  //   return repo.findRecent(limit);
-  // }
-
   async getRecent(limitStr?: string, user?: { userId: string; role: string }) {
   const limit = Math.min(50, Math.max(1, parseInt(limitStr || "10", 10)));
   return repo.findRecent(limit, user);
 }
 
   // ---------- Summary ----------
-  // async getSummary(deviceId?: string) {
-  //   return repo.getSummary(deviceId);
-  // }
-
   async getSummary(
   deviceId?: string,
   user?: { userId: string; role: string }
@@ -200,4 +191,52 @@ export class AlertService {
 
     return { checkedDevices: latestData.length, alertsGenerated: createdAlerts.length };
   }
+
+  // ---------- Check Live AlertLogic ----------
+  checkLiveAlerts(data: {
+  voltage: number;
+  current: number;
+  temperature: number;
+  soc: number;
+}) {
+  const alerts: any[] = [];
+
+  if (data.temperature > 45) {
+    alerts.push({
+      type: "critical",
+      title: "Temperature exceeded",
+      sub: `Temperature: ${data.temperature}°C`,
+      time: new Date().toLocaleTimeString(),
+    });
+  }
+
+  if (data.soc < 20) {
+    alerts.push({
+      type: "battery",
+      title: "Low SOC",
+      sub: `SOC: ${data.soc}%`,
+      time: new Date().toLocaleTimeString(),
+    });
+  }
+
+  if (data.voltage > 15) {
+    alerts.push({
+      type: "critical",
+      title: "Voltage exceeded",
+      sub: `Voltage: ${data.voltage}V`,
+      time: new Date().toLocaleTimeString(),
+    });
+  }
+
+  if (data.current > 10) {
+    alerts.push({
+      type: "critical",
+      title: "High Current",
+      sub: `Current: ${data.current}A`,
+      time: new Date().toLocaleTimeString(),
+    });
+  }
+
+  return alerts;
+}
 }
