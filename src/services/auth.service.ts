@@ -1,7 +1,7 @@
 import { AuthRepository } from "../repositories/auth.repository";
 import { validatePassword } from "../utils/passwordValidator";
 import { signAccessToken, signRefreshToken } from "../utils/jwt";
-import { transporter } from "../utils/mail";
+import { sendResetEmail } from "../utils/mail";
 import crypto from "crypto";
 import bcrypt from "bcrypt";
 
@@ -114,12 +114,7 @@ export class AuthService {
       const expiry = new Date(Date.now() + 60 * 60 * 1000); // 1h
       await this.repo.saveResetToken(user.id, token, expiry);
       const resetLink = `${process.env.FRONTEND_URL}/reset-password?token=${token}`;
-      await transporter.sendMail({
-        from: process.env.EMAIL_USER,
-        to: user.email,
-        subject: "BMS – Password Reset",
-        html: `<h3>Password Reset</h3><p>Click below to reset your password (expires in 1 hour):</p><a href="${resetLink}">${resetLink}</a>`,
-      });
+      await sendResetEmail(user.email, resetLink);
     }
     return { message: "If the email exists, a reset link has been sent" };
   }
