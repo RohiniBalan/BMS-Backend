@@ -13,7 +13,7 @@ export const auditLog = (action: string, entity: string, getEntityId: string | (
         if (typeof getEntityId === "function") {
           entityId = getEntityId(req);
         } else if (getEntityId === "req.params.id") {
-          entityId = req.params.id || "UNKNOWN";
+          entityId = String(req.params.id || "UNKNOWN");
         } else {
           entityId = getEntityId;
         }
@@ -29,7 +29,7 @@ export const auditLog = (action: string, entity: string, getEntityId: string | (
               query: req.query,
               params: req.params,
             },
-            ipAddress: req.ip || req.socket.remoteAddress || null,
+            ipAddress: String(req.ip || req.socket.remoteAddress || ""),
           },
         });
       }

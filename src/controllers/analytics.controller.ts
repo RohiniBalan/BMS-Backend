@@ -1,7 +1,6 @@
 import { Request, Response, NextFunction } from "express";
 import { AnalyticsService } from "../services/analytics.service";
 import { sendSuccess } from "../utils/response";
-import { stringify } from "csv-stringify"; // need to check if available, otherwise manual
 // Since we don't know if csv-stringify is installed, we will build a manual CSV stringifier for safety.
 import { Readable } from "stream";
 
