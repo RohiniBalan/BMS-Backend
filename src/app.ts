@@ -57,12 +57,6 @@ app.use("/api/v1", thermalRoutes);
 app.use("/api/v1/live-telemetry", liveTelemetryRoutes);
 app.use("/api/v1/live", liveStreamRoutes);
 
-app.get("/ping", (req, res) => {
-  res.status(200).json({
-    success: true,
-    message: "Backend reachable"
-  });
-});
 
 // 404 handler
 app.use((req: Request, res: Response) => {
