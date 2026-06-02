@@ -98,4 +98,11 @@ export class AuthRepository {
       },
     });
   }
+
+  // ----------Phone number -------------
+  async findUserByPhone(phoneNumber: string) {
+    return prisma.user.findFirst({
+      where: { phoneNumber },
+    });
+  }
 }

@@ -21,6 +21,11 @@ export class AuthService {
     const existing = await this.repo.findUserByEmail(data.email);
     if (existing) throw new Error("Email already registered");
 
+     const existingPhone = await this.repo.findUserByPhone(data.phoneNumber);
+    if (existingPhone) {
+      throw new Error("Phone number already registered");
+    }
+
     if (data.password !== data.confirmPassword)
       throw new Error("Passwords do not match");
 
