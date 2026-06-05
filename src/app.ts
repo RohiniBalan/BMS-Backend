@@ -18,6 +18,8 @@ import reportRoutes from "./routes/report.routes";
 import packRoutes from "./routes/pack.routes";
 import liveTelemetryRoutes from "./routes/liveTelemetry.routes";
 import liveStreamRoutes from "./routes/liveStream.routes";
+import userRoutes from "./routes/user.routes";
+
 import { errorHandler } from "./middleware/errorHandler";
 
 const app = express();
@@ -56,6 +58,7 @@ app.use("/api/v1", batteryRoutes);
 app.use("/api/v1", thermalRoutes);
 app.use("/api/v1/live-telemetry", liveTelemetryRoutes);
 app.use("/api/v1/live", liveStreamRoutes);
+app.use("/api/v1/users", userRoutes)
 
 
 // 404 handler

@@ -88,6 +88,16 @@ export class AuthRepository {
     });
   }
 
+  // ---------- Last Login ----------
+  async updateLastLogin(userId: string) {
+  return prisma.user.update({
+    where: { id: userId },
+    data: {
+      lastLoginAt: new Date(),
+    },
+  });
+}
+
   // ---------- Provider linking ----------
   async linkProvider(userId: string, providerId: string, provider: "GOOGLE" | "MICROSOFT") {
     return prisma.user.update({

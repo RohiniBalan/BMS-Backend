@@ -76,6 +76,7 @@ export class AuthService {
     }
 
     await this.repo.resetLoginAttempts(user.id);
+    await this.repo.updateLastLogin(user.id);
 
     const accessToken = signAccessToken({ id: user.id, email: user.email, role: user.role });
     const rawRefresh = signRefreshToken({ id: user.id, email: user.email, role: user.role });
