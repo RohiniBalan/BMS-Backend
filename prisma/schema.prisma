@@ -29,6 +29,13 @@ enum Role {
   USER
 }
 
+enum BatteryType {
+  LITHIUM_IRON
+  LITHIUM_IRON_PHOSPHATE
+  NICKEL_METAL_HYDRIDE
+  LEAD_ACID_BATTERIES
+}
+
 enum AuthProvider {
   LOCAL
   GOOGLE
@@ -85,9 +92,10 @@ model User {
   updatedAt DateTime @updatedAt
 
   // Relations
-  alerts    Alert[]   @relation("ResolvedAlerts")
-  auditLogs AuditLog[]
-  devices   Device[]  @relation("UserDevices")
+  alerts        Alert[]              @relation("ResolvedAlerts")
+  auditLogs     AuditLog[]
+  devices       Device[]             @relation("UserDevices")
+  registrations DeviceRegistration[]
 }
 
 model BatteryChemistry {
@@ -115,7 +123,7 @@ model ChemistryConfig {
   temperatureLimit       Float
   firmwareVersion        String
 
-  isActive            Boolean             @default(true)
+  isActive            Boolean              @default(true)
   socEstimationMethod SocEstimationMethod?
 
   createdAt DateTime @default(now())
@@ -125,10 +133,10 @@ model ChemistryConfig {
 }
 
 model ThermalSafety {
-  id            Int    @id @default(autoincrement())
-  parameterName String
+  id             Int    @id @default(autoincrement())
+  parameterName  String
   thresholdValue Float
-  actionName    String
+  actionName     String
 
   configs ThermalSafetyConfig[]
 
@@ -156,7 +164,7 @@ model ThermalSafetyConfig {
 }
 
 model Device {
-  id               String       @id @default(uuid())
+  id               String       @id
   deviceName       String
   deviceType       String
   serialNumber     String       @unique
@@ -173,7 +181,8 @@ model Device {
   alerts      Alert[]
 
   userId       String?
-  user         User?        @relation("UserDevices", fields: [userId], references: [id])
+  user         User?               @relation("UserDevices", fields: [userId], references: [id])
+  registration DeviceRegistration?
 
   @@index([status])
 }
@@ -225,15 +234,15 @@ model CellTelemetry {
 }
 
 model Alert {
-  id        String        @id @default(uuid())
-  deviceId  String
-  device    Device        @relation(fields: [deviceId], references: [id])
-  alertType AlertType
-  severity  AlertSeverity
-  message   String
-  isResolved Boolean      @default(false)
+  id         String        @id @default(uuid())
+  deviceId   String
+  device     Device        @relation(fields: [deviceId], references: [id])
+  alertType  AlertType
+  severity   AlertSeverity
+  message    String
+  isResolved Boolean       @default(false)
   resolvedAt DateTime?
-  createdAt  DateTime     @default(now())
+  createdAt  DateTime      @default(now())
 
   resolvedById String?
   resolvedBy   User?   @relation("ResolvedAlerts", fields: [resolvedById], references: [id])
@@ -248,5 +257,24 @@ model AuditLog {
   entityId  String
   details   Json
   ipAddress String?
+  createdAt DateTime @default(now())
+}
+
+model DeviceRegistration {
+  id String @id @default(uuid())
+
+  deviceId String @unique
+  device   Device @relation(fields: [deviceId], references: [id])
+
+  userId String
+  user   User   @relation(fields: [userId], references: [id])
+
+  deviceName       String
+  dataSubscription String
+  batteryType      BatteryType
+
+  registrationSource String
+  registeredAt       DateTime @default(now())
+
   createdAt DateTime @default(now())
 }

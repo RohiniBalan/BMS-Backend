@@ -2,7 +2,9 @@ import { z } from "zod";
 
 // ---------- Single telemetry record ----------
 const telemetryRecordSchema = z.object({
-  deviceId: z.string().uuid("Invalid device ID"),
+  deviceId: z
+  .string()
+  .min(1, "Device ID is required"),
   soc: z.number().min(0).max(100, "SOC must be 0–100"),
   voltage: z.number().positive("Voltage must be positive"),
   current: z.number(),
@@ -31,7 +33,9 @@ export const bulkIngestSchema = z.object({
 // ---------- Device ID param ----------
 const deviceIdParam = z.object({
   params: z.object({
-    deviceId: z.string().uuid("Invalid device ID"),
+    deviceId: z
+  .string()
+  .min(1, "Device ID is required"),
   }),
 });
 
@@ -40,7 +44,9 @@ export const latestByDeviceSchema = deviceIdParam;
 // ---------- History query ----------
 export const historySchema = z.object({
   params: z.object({
-    deviceId: z.string().uuid("Invalid device ID"),
+    deviceId: z
+  .string()
+  .min(1, "Device ID is required"),
   }),
   query: z.object({
     page: z.string().optional(),

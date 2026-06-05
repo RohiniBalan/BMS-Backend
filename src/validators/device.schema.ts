@@ -3,6 +3,13 @@ import { DeviceStatus } from "@prisma/client";
 
 const deviceStatusEnum = z.nativeEnum(DeviceStatus);
 
+const batteryTypeEnum = z.enum([
+  "LITHIUM_IRON",
+  "LITHIUM_IRON_PHOSPHATE",
+  "NICKEL_METAL_HYDRIDE",
+  "LEAD_ACID_BATTERIES",
+]);
+
 // ---------- Create Device ----------
 export const createDeviceSchema = z.object({
   body: z.object({
@@ -53,5 +60,17 @@ export const listDevicesSchema = z.object({
     status: deviceStatusEnum.optional(),
     deviceType: z.string().optional(),
     search: z.string().optional(),
+  }),
+});
+
+// ---------- Register Device ----------
+export const registerDeviceSchema = z.object({
+  body: z.object({
+    deviceId: z.string().min(1, "Device ID is required"),
+    deviceName: z.string().min(1),
+
+    dataSubscription: z.string().min(1),
+
+    batteryType: batteryTypeEnum,
   }),
 });

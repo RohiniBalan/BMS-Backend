@@ -67,4 +67,58 @@ const { devices, pagination } = await service.getDevices(
       return sendSuccess(res, "Device status updated", device);
     } catch (err) { next(err); }
   }
+
+  // Register device
+async registerDevice(
+  req: Request,
+  res: Response,
+  next: NextFunction
+) {
+  try {
+    const user = (req as any).user;
+
+    const result =
+      await service.registerDevice({
+        deviceId: req.body.deviceId,
+        deviceName: req.body.deviceName,
+        dataSubscription:
+          req.body.dataSubscription,
+        batteryType:
+          req.body.batteryType,
+        userId: user.id,
+        registrationSource:
+          (req as any).clientType,
+      });
+
+    return sendSuccess(
+      res,
+      "Device registered successfully",
+      result
+    );
+  } catch (err) {
+    next(err);
+  }
+}
+
+// --------- Get My Devices ----------
+async getMyDevices(
+  req: Request,
+  res: Response,
+  next: NextFunction
+) {
+  try {
+    const user = (req as any).user;
+
+    const devices =
+      await service.getMyDevices(user.id);
+
+    return sendSuccess(
+      res,
+      "Devices retrieved",
+      devices
+    );
+  } catch (err) {
+    next(err);
+  }
+}
 }

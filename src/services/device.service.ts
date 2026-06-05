@@ -1,8 +1,12 @@
 import { DeviceRepository, DeviceFilters } from "../repositories/device.repository";
 import { parsePagination, buildPaginationMeta } from "../utils/pagination";
 import { DeviceStatus } from "@prisma/client";
+import { DeviceRegistrationRepository }
+from "../repositories/deviceRegistration.repository";
+import { BatteryType } from "@prisma/client";
 
 const repo = new DeviceRepository();
+const registrationRepo = new DeviceRegistrationRepository();
 
 export class DeviceService {
   // ---------- List ----------
@@ -131,4 +135,69 @@ const { devices, total } = await repo.findAll(
       latestSoc: d.telemetry[0]?.soc ?? null,
     }));
   }
+
+// ---------- Register Device ----------
+async registerDevice(data: {
+  deviceId: string;
+  userId: string;
+  deviceName: string;
+  dataSubscription: string;
+  batteryType: BatteryType;
+  registrationSource: string;
+}) {
+  const device = await repo.findById(data.deviceId);
+
+if (!device) {
+  await repo.create({
+    id: data.deviceId,
+    deviceName: data.deviceName,
+    deviceType: "Battery",
+    serialNumber: data.deviceId,
+    totalCapacityKWh: 0,
+    user: {
+      connect: {
+        id: data.userId,
+      },
+    },
+  });
 }
+
+  const existing =
+    await registrationRepo.findByDeviceId(
+      data.deviceId
+    );
+
+  if (existing) {
+    throw Object.assign(
+      new Error("Device already registered"),
+      { status: 400 }
+    );
+  }
+
+  await repo.update(
+    data.deviceId,
+    {
+      user: {
+        connect: {
+          id: data.userId,
+        },
+      },
+    }
+  );
+
+  return registrationRepo.create({
+    deviceId: data.deviceId,
+    userId: data.userId,
+    deviceName: data.deviceName,
+    dataSubscription: data.dataSubscription,
+    batteryType: data.batteryType,
+    registrationSource: data.registrationSource,
+  });
+}
+
+// -----------Get my devices ---------
+async getMyDevices(userId: string) {
+  return registrationRepo.findByUserId(userId);
+}
+}
+
