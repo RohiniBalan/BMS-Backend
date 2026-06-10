@@ -10,41 +10,85 @@ export interface DeviceFilters {
 
 export class DeviceRepository {
   // ---------- List with filters + pagination ----------
-  async findAll(
-    filters: DeviceFilters,
-    skip: number,
-    take: number
-  ) {
+  async findAll(filters: DeviceFilters, skip: number, take: number) {
     const where: Prisma.DeviceWhereInput = {};
     if (filters.status) where.status = filters.status;
-    if (filters.deviceType) where.deviceType = { equals: filters.deviceType, mode: "insensitive" };
-    if (filters.search) where.deviceName = { contains: filters.search, mode: "insensitive" };
+    if (filters.deviceType)
+      where.deviceType = { equals: filters.deviceType, mode: "insensitive" };
+    if (filters.search)
+      where.deviceName = { contains: filters.search, mode: "insensitive" };
     if (filters.userId) where.userId = filters.userId;
     const [devices, total] = await Promise.all([
-  prisma.device.findMany({
-    where,
-    skip,
-    take,
-    orderBy: { createdAt: "desc" },
+      prisma.device.findMany({
+        where,
+        skip,
+        take,
+        orderBy: { createdAt: "desc" },
 
-    include: {
-      telemetry: {
-        orderBy: {
-          recordedAt: "desc",
+        include: {
+          user: {
+            select: {
+              fullName: true,
+              email: true,
+            },
+          },
+
+          registration: {
+            select: {
+              batteryType: true,
+              dataSubscription: true,
+              registeredAt: true,
+              registrationSource: true,
+    registeredById: true,
+    userId: true,
+            },
+          },
+
+          telemetry: {
+            orderBy: {
+              recordedAt: "desc",
+            },
+            take: 1,
+          },
         },
-        take: 1,
-      },
-    },
-  }),
+      }),
 
-  prisma.device.count({ where }),
-]);
+      prisma.device.count({ where }),
+    ]);
     return { devices, total };
   }
 
   // ---------- Single device ----------
   async findById(id: string) {
-    return prisma.device.findUnique({ where: { id } });
+    return prisma.device.findUnique({
+      where: { id },
+
+      include: {
+        user: {
+          select: {
+            fullName: true,
+            email: true,
+          },
+        },
+
+        telemetry: {
+          orderBy: {
+            recordedAt: "desc",
+          },
+          take: 1,
+        },
+        registration: {
+          select: {
+            batteryType: true,
+            dataSubscription: true,
+            registeredAt: true,
+            registrationSource: true,
+            registeredById: true,
+            userId: true,
+          },
+        },
+      },
+    });
   }
 
   async findBySerialNumber(serialNumber: string) {

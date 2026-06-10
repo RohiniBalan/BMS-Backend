@@ -10,7 +10,8 @@ export class DeviceRegistrationRepository {
 
   async create(data: {
     deviceId: string;
-    userId: string;
+    userId: string | null;
+    registeredById: string;
     deviceName: string;
     dataSubscription: string;
     batteryType: BatteryType;
@@ -24,9 +25,36 @@ export class DeviceRegistrationRepository {
   async findByUserId(userId: string) {
   return prisma.deviceRegistration.findMany({
     where: { userId },
+
+    include: {
+      device: {
+        include: {
+          telemetry: {
+            orderBy: {
+              recordedAt: "desc",
+            },
+            take: 1,
+          },
+        },
+      },
+    },
+
     orderBy: {
       registeredAt: "desc",
     },
+  });
+}
+
+async updateByDeviceId(deviceId: string, data: any) {
+  return prisma.deviceRegistration.update({
+    where: { deviceId },
+    data,
+  });
+}
+
+async deleteByDeviceId(deviceId: string) {
+  return prisma.deviceRegistration.delete({
+    where: { deviceId },
   });
 }
 }

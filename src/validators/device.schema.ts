@@ -26,7 +26,9 @@ export const createDeviceSchema = z.object({
 
 // ---------- Update Device ----------
 export const updateDeviceSchema = z.object({
-  params: z.object({ id: z.string().uuid("Invalid device ID") }),
+  params: z.object({
+  id: z.string().min(1),
+}),
   body: z.object({
     deviceName: z.string().min(1).optional(),
     deviceType: z.string().min(1).optional(),
@@ -41,7 +43,9 @@ export const updateDeviceSchema = z.object({
 
 // ---------- Patch Status ----------
 export const patchStatusSchema = z.object({
-  params: z.object({ id: z.string().uuid("Invalid device ID") }),
+  params: z.object({
+  id: z.string().min(1),
+}),
   body: z.object({
     status: deviceStatusEnum,
   }),
@@ -49,7 +53,9 @@ export const patchStatusSchema = z.object({
 
 // ---------- Get by ID ----------
 export const deviceIdSchema = z.object({
-  params: z.object({ id: z.string().uuid("Invalid device ID") }),
+  params: z.object({
+  id: z.string().min(1),
+}),
 });
 
 // ---------- List Devices (query) ----------

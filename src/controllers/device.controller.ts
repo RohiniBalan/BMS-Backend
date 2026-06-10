@@ -45,20 +45,47 @@ const { devices, pagination } = await service.getDevices(
   }
 
   // PUT /devices/:id
-  async updateDevice(req: Request, res: Response, next: NextFunction) {
-    try {
-      const device = await service.updateDevice(String(req.params.id), req.body);
-      return sendSuccess(res, "Device updated", device);
-    } catch (err) { next(err); }
+async updateDevice(req: Request, res: Response, next: NextFunction) {
+  try {
+    const user = (req as any).user;
+    const id = String(req.params.id);
+
+    const body = {
+      deviceName: req.body.deviceName,
+      deviceType: req.body.deviceType,
+      serialNumber: req.body.serialNumber,
+      status: req.body.status,
+      totalCapacityKWh: req.body.totalCapacityKWh,
+      latitude: req.body.latitude,
+      longitude: req.body.longitude,
+      locationName: req.body.locationName,
+
+      // IMPORTANT ADD THESE
+      dataSubscription: req.body.dataSubscription,
+      batteryType: req.body.batteryType,
+    };
+
+    const device = await service.updateDevice(id, body, user);
+
+    return sendSuccess(res, "Device updated", device);
+  } catch (err) {
+    next(err);
   }
+}
 
   // DELETE /devices/:id
-  async deleteDevice(req: Request, res: Response, next: NextFunction) {
-    try {
-      await service.deleteDevice(String(req.params.id));
-      return sendSuccess(res, "Device deleted");
-    } catch (err) { next(err); }
+async deleteDevice(req: Request, res: Response, next: NextFunction) {
+  try {
+    const user = (req as any).user;
+    const id = String(req.params.id);
+
+    await service.deleteDevice(id, user);
+
+    return sendSuccess(res, "Device deleted");
+  } catch (err) {
+    next(err);
   }
+}
 
   // PATCH /devices/:id/status
   async patchStatus(req: Request, res: Response, next: NextFunction) {
@@ -78,17 +105,20 @@ async registerDevice(
     const user = (req as any).user;
 
     const result =
-      await service.registerDevice({
-        deviceId: req.body.deviceId,
-        deviceName: req.body.deviceName,
-        dataSubscription:
-          req.body.dataSubscription,
-        batteryType:
-          req.body.batteryType,
-        userId: user.id,
-        registrationSource:
-          (req as any).clientType,
-      });
+  await service.registerDevice({
+    deviceId: req.body.deviceId.trim(),
+    deviceName: req.body.deviceName.trim(),
+    dataSubscription:
+      req.body.dataSubscription,
+    batteryType:
+      req.body.batteryType,
+
+    userId: user.id,
+    role: user.role,
+
+    registrationSource:
+      (req as any).clientType,
+  });
 
     return sendSuccess(
       res,
@@ -117,6 +147,24 @@ async getMyDevices(
       "Devices retrieved",
       devices
     );
+  } catch (err) {
+    next(err);
+  }
+}
+
+// --------- Assign Device to User ----------
+async assignDevice(req: Request, res: Response, next: NextFunction) {
+  try {
+    const user = (req as any).user;
+    const userId = req.body.userId;
+
+    const device = await service.assignDevice(
+      String(req.params.id),
+      String(userId),
+      user.id
+    );
+
+    return sendSuccess(res, "Device assigned successfully", device);
   } catch (err) {
     next(err);
   }

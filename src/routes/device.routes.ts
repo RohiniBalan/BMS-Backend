@@ -48,12 +48,14 @@ router.get(
 router.get("/:id", authorize("ADMIN", "USER"), validate(deviceIdSchema), ctrl.getDeviceById.bind(ctrl));
 
 // PUT /api/v1/devices/:id
-router.put("/:id", authorize("ADMIN"), validate(updateDeviceSchema), ctrl.updateDevice.bind(ctrl));
+router.put("/:id", authorize("ADMIN", "USER"), validate(updateDeviceSchema), ctrl.updateDevice.bind(ctrl));
 
 // DELETE /api/v1/devices/:id
-router.delete("/:id", authorize("ADMIN"), validate(deviceIdSchema), ctrl.deleteDevice.bind(ctrl));
+router.delete("/:id", authorize("ADMIN", "USER"), validate(deviceIdSchema), ctrl.deleteDevice.bind(ctrl));
 
 // PATCH /api/v1/devices/:id/status
 router.patch("/:id/status", authorize("ADMIN"), validate(patchStatusSchema), ctrl.patchStatus.bind(ctrl));
+
+router.patch("/:id/assign", authorize("ADMIN"), ctrl.assignDevice.bind(ctrl));
 
 export default router;

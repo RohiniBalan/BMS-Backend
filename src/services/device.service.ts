@@ -4,6 +4,7 @@ import { DeviceStatus } from "@prisma/client";
 import { DeviceRegistrationRepository }
 from "../repositories/deviceRegistration.repository";
 import { BatteryType } from "@prisma/client";
+import { canDeleteDevice } from "../permissions/device.permission";
 
 const repo = new DeviceRepository();
 const registrationRepo = new DeviceRegistrationRepository();
@@ -47,13 +48,18 @@ const { devices, total } = await repo.findAll(
 
   // ---------- Single ----------
   async getDeviceById(id: string) {
-    const device = await repo.findById(id);
+    console.log("Looking for device:", id);
+
+const device = await repo.findById(id);
+
+console.log("Found device:", device);
     if (!device) throw Object.assign(new Error("Device not found"), { status: 404 });
     return device;
   }
 
   // ---------- Create ----------
   async createDevice(body: {
+    id: string;
     deviceName: string;
     deviceType: string;
     serialNumber: string;
@@ -69,6 +75,7 @@ const { devices, total } = await repo.findAll(
       throw Object.assign(new Error(`Device with serial number '${body.serialNumber}' already exists`), { status: 409 });
     }
     return repo.create({
+  id: body.id,
   deviceName: body.deviceName,
   deviceType: body.deviceType,
   serialNumber: body.serialNumber,
@@ -89,31 +96,76 @@ const { devices, total } = await repo.findAll(
   }
 
   // ---------- Update ----------
-  async updateDevice(
-    id: string,
-    body: Partial<{
-      deviceName: string;
-      deviceType: string;
-      serialNumber: string;
-      status: DeviceStatus;
-      totalCapacityKWh: number;
-      latitude: number;
-      longitude: number;
-      locationName: string;
-    }>
-  ) {
-    const device = await repo.findById(id);
-    if (!device) throw Object.assign(new Error("Device not found"), { status: 404 });
-    return repo.update(id, body);
+async updateDevice(
+  id: string,
+  body: Partial<{
+    deviceName: string;
+    deviceType: string;
+    serialNumber: string;
+    status: DeviceStatus;
+    totalCapacityKWh: number;
+    latitude: number;
+    longitude: number;
+    locationName: string;
+    dataSubscription: string;
+    batteryType: BatteryType;
+  }>,
+  user: { id: string; role: string }
+) {
+  const device = await repo.findById(id);
+
+  if (!device) {
+    throw Object.assign(new Error("Device not found"), { status: 404 });
   }
 
-  // ---------- Delete ----------
-  async deleteDevice(id: string) {
-    const device = await repo.findById(id);
-    if (!device) throw Object.assign(new Error("Device not found"), { status: 404 });
-    await repo.delete(id);
-    return true;
+  const canManage = await this.canManageDevice(id, user);
+
+  if (!canManage) {
+    throw Object.assign(new Error("Forbidden"), { status: 403 });
   }
+
+  const updatedDevice = await repo.update(id, {
+    deviceName: body.deviceName,
+    deviceType: body.deviceType,
+    serialNumber: body.serialNumber,
+    status: body.status,
+    totalCapacityKWh: body.totalCapacityKWh,
+    latitude: body.latitude,
+    longitude: body.longitude,
+    locationName: body.locationName,
+  });
+
+  await registrationRepo.updateByDeviceId(id, {
+    dataSubscription: body.dataSubscription,
+    batteryType: body.batteryType,
+  });
+
+  return updatedDevice;
+}
+
+  // ---------- Delete ----------
+async deleteDevice(
+  id: string,
+  user: { id: string; role: string }
+) {
+  const device = await repo.findById(id);
+
+  if (!device) {
+    throw Object.assign(new Error("Device not found"), { status: 404 });
+  }
+
+  const canManage = await this.canManageDevice(id, user);
+
+  if (!canManage) {
+    throw Object.assign(new Error("Forbidden"), { status: 403 });
+  }
+
+  await registrationRepo.deleteByDeviceId(id);
+  
+  await repo.delete(id);
+
+  return true;
+}
 
   // ---------- Patch status ----------
   async patchStatus(id: string, status: DeviceStatus) {
@@ -140,6 +192,7 @@ const { devices, total } = await repo.findAll(
 async registerDevice(data: {
   deviceId: string;
   userId: string;
+  role: string;
   deviceName: string;
   dataSubscription: string;
   batteryType: BatteryType;
@@ -154,11 +207,14 @@ if (!device) {
     deviceType: "Battery",
     serialNumber: data.deviceId,
     totalCapacityKWh: 0,
-    user: {
-      connect: {
-        id: data.userId,
+
+    ...(data.role === "USER" && {
+      user: {
+        connect: {
+          id: data.userId,
+        },
       },
-    },
+    }),
   });
 }
 
@@ -174,30 +230,96 @@ if (!device) {
     );
   }
 
-  await repo.update(
-    data.deviceId,
-    {
-      user: {
-        connect: {
-          id: data.userId,
-        },
-      },
-    }
-  );
+  // await repo.update(
+  //   data.deviceId,
+  //   {
+  //     user: {
+  //       connect: {
+  //         id: data.userId,
+  //       },
+  //     },
+  //   }
+  // );
 
   return registrationRepo.create({
-    deviceId: data.deviceId,
-    userId: data.userId,
-    deviceName: data.deviceName,
-    dataSubscription: data.dataSubscription,
-    batteryType: data.batteryType,
-    registrationSource: data.registrationSource,
-  });
+  deviceId: data.deviceId,
+
+  userId:
+    data.role === "USER"
+      ? data.userId
+      : null,
+
+  registeredById: data.userId,
+
+  deviceName: data.deviceName,
+  dataSubscription: data.dataSubscription,
+  batteryType: data.batteryType,
+  registrationSource: data.registrationSource,
+});
 }
 
 // -----------Get my devices ---------
 async getMyDevices(userId: string) {
   return registrationRepo.findByUserId(userId);
+}
+
+
+  // --------- Assign device to user ----
+async assignDevice(
+  deviceId: string,
+  userId: string,
+  currentUserId: string
+) {
+  const device = await repo.findById(deviceId);
+
+  if (!device) {
+    throw Object.assign(new Error("Device not found"), { status: 404 });
+  }
+
+  const registration = await registrationRepo.findByDeviceId(deviceId);
+
+  const canAssign =
+    registration?.registeredById === currentUserId;
+
+  if (!canAssign) {
+    throw Object.assign(new Error("Forbidden"), { status: 403 });
+  }
+
+  if (device.userId) {
+    throw Object.assign(new Error("Device already assigned"), { status: 400 });
+  }
+
+  const updated = await repo.update(deviceId, {
+    user: {
+      connect: { id: userId },
+    },
+  });
+
+  await registrationRepo.updateByDeviceId(deviceId, {
+    userId: userId,
+  });
+
+  return updated;
+}
+private async canManageDevice(
+  deviceId: string,
+  currentUser: { id: string; role: string }
+) {
+  const registration =
+    await registrationRepo.findByDeviceId(deviceId);
+
+  if (!registration) return false;
+
+  const device = await repo.findById(deviceId);
+  if (!device) return false;
+
+  const isAdmin = currentUser.role === "ADMIN";
+
+  const isOwner = registration.userId === currentUser.id;
+  const isRegisteredBy =
+    registration.registeredById === currentUser.id;
+
+  return isAdmin || isOwner || isRegisteredBy;
 }
 }
 
