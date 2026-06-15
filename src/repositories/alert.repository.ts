@@ -41,15 +41,6 @@ export class AlertRepository {
     });
   }
 
-  // ---------- Find recent ----------
-  // async findRecent(limit: number) {
-  //   return prisma.alert.findMany({
-  //     take: limit,
-  //     orderBy: { createdAt: "desc" },
-  //     include: { device: { select: { deviceName: true } } },
-  //   });
-  // }
-
   async findRecent(limit: number, user?: { userId: string; role: string }) {
     const where: Prisma.AlertWhereInput = {};
 
@@ -70,29 +61,6 @@ export class AlertRepository {
     });
   }
 
-  // ---------- Summary (Counts by severity) ----------
-  // async getSummary(deviceId?: string) {
-  //   const where: Prisma.AlertWhereInput = { isResolved: false };
-  //   if (deviceId) where.deviceId = deviceId;
-
-  //   const groupBy = await prisma.alert.groupBy({
-  //     by: ["severity"],
-  //     where,
-  //     _count: { severity: true },
-  //   });
-
-  //   const summary = {
-  //     [AlertSeverity.CRITICAL]: 0,
-  //     [AlertSeverity.WARNING]: 0,
-  //     [AlertSeverity.INFO]: 0,
-  //   };
-
-  //   groupBy.forEach((group) => {
-  //     summary[group.severity] = group._count.severity;
-  //   });
-
-  //   return summary;
-  // }
 
   async getSummary(deviceId?: string, user?: { userId: string; role: string }) {
     const where: Prisma.AlertWhereInput = {

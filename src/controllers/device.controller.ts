@@ -59,8 +59,6 @@ async updateDevice(req: Request, res: Response, next: NextFunction) {
       latitude: req.body.latitude,
       longitude: req.body.longitude,
       locationName: req.body.locationName,
-
-      // IMPORTANT ADD THESE
       dataSubscription: req.body.dataSubscription,
       batteryType: req.body.batteryType,
     };

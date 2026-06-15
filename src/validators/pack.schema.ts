@@ -2,7 +2,7 @@ import { z } from "zod";
 
 export const createPackSchema = z.object({
   body: z.object({
-    deviceId: z.string().uuid("Invalid device ID"),
+    deviceId: z.string().min(1, "Device ID is required"),
     totalRows: z.number().int().min(1),
     totalColumns: z.number().int().min(1),
     capacityFade: z.number().optional(),
@@ -15,7 +15,7 @@ export const listPacksSchema = z.object({
   query: z.object({
     page: z.string().optional(),
     limit: z.string().optional(),
-    deviceId: z.string().uuid().optional(),
+    deviceId: z.string().min(1, "Device ID is required").optional(),
   }),
 });
 

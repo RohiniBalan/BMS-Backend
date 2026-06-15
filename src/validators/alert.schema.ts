@@ -12,14 +12,14 @@ export const listAlertsSchema = z.object({
     isResolved: z.enum(["true", "false"]).optional(),
     severity: severityEnum.optional(),
     alertType: typeEnum.optional(),
-    deviceId: z.string().uuid().optional(),
+    deviceId: z.string().min(1, "Device ID is required"),
   }),
 });
 
 // ---------- Create Alert (Manual or Webhook) ----------
 export const createAlertSchema = z.object({
   body: z.object({
-    deviceId: z.string().uuid("Invalid device ID"),
+    deviceId: z.string().min(1, "Device ID is required"),
     alertType: typeEnum,
     severity: severityEnum,
     message: z.string().min(1, "Message is required"),
@@ -39,6 +39,6 @@ export const deleteAlertSchema = resolveAlertSchema;
 // ---------- Summary / Recent ----------
 export const summaryAlertsSchema = z.object({
   query: z.object({
-    deviceId: z.string().uuid().optional(),
+    deviceId: z.string().min(1, "Device ID is required").optional(),
   }),
 });
