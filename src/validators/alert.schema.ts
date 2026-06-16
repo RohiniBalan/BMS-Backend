@@ -10,9 +10,13 @@ export const listAlertsSchema = z.object({
     page: z.string().optional(),
     limit: z.string().optional(),
     isResolved: z.enum(["true", "false"]).optional(),
+    status: z.enum(["ACTIVE", "ACKNOWLEDGED", "RESOLVED"]).optional(),
     severity: severityEnum.optional(),
     alertType: typeEnum.optional(),
-    deviceId: z.string().min(1, "Device ID is required"),
+    deviceId: z.string().min(1, "Device ID is required").optional(),
+    search: z.string().optional(),
+    from: z.string().optional(),
+    to: z.string().optional(),
   }),
 });
 
@@ -32,6 +36,8 @@ export const resolveAlertSchema = z.object({
     id: z.string().uuid("Invalid alert ID"),
   }),
 });
+
+export const acknowledgeAlertSchema = resolveAlertSchema;
 
 // ---------- Delete Alert ----------
 export const deleteAlertSchema = resolveAlertSchema;

@@ -7,9 +7,11 @@ const service = new AlertService();
 
 export class AlertController {
   // GET /alerts
-  async getAlerts(req: Request, res: Response, next: NextFunction) {
+  async getAlerts(req: AuthRequest, res: Response, next: NextFunction) {
     try {
-      const { alerts, pagination } = await service.getAlerts(req.query as any);
+      const userId = req.user!.id;
+      const role = req.user!.role;
+      const { alerts, pagination } = await service.getAlerts(req.query as any, { userId, role });
       return sendSuccess(res, "Alerts retrieved", alerts, pagination);
     } catch (err) { next(err); }
   }
@@ -43,6 +45,18 @@ const alerts = await service.getRecent(
   }
 }
 
+  async getStats(req: AuthRequest, res: Response, next: NextFunction) {
+    try {
+      const userId = req.user!.id;
+      const role = req.user!.role;
+      const stats = await service.getStats({ userId, role });
+
+      return sendSuccess(res, "Alert stats retrieved", stats);
+    } catch (err) {
+      next(err);
+    }
+  }
+
   // POST /alerts
   async createAlert(req: Request, res: Response, next: NextFunction) {
     try {
@@ -58,6 +72,15 @@ const alerts = await service.getRecent(
       const userId = req.user!.id;
       const alert = await service.resolveAlert(String(req.params.id), userId);
       return sendSuccess(res, "Alert resolved", alert);
+    } catch (err) { next(err); }
+  }
+
+  // PATCH /alerts/:id/acknowledge
+  async acknowledgeAlert(req: AuthRequest, res: Response, next: NextFunction) {
+    try {
+      const userId = req.user!.id;
+      const alert = await service.acknowledgeAlert(String(req.params.id), userId);
+      return sendSuccess(res, "Alert acknowledged", alert);
     } catch (err) { next(err); }
   }
 

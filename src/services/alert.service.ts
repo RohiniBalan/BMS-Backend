@@ -11,17 +11,40 @@ export class AlertService {
     page?: string;
     limit?: string;
     isResolved?: string;
+    status?: string;
     severity?: string;
     alertType?: string;
     deviceId?: string;
-  }) {
+    search?: string;
+    from?: string;
+    to?: string;
+  }, user?: { userId: string; role: string }) {
     const pagination = parsePagination(query);
     const filters: AlertFilters = {};
 
-    if (query.isResolved !== undefined) filters.isResolved = query.isResolved === "true";
+    if (query.status === "ACTIVE") {
+      filters.isResolved = false;
+      filters.isAcknowledged = false;
+    } else if (query.status === "ACKNOWLEDGED") {
+      filters.isResolved = false;
+      filters.isAcknowledged = true;
+    } else if (query.status === "RESOLVED") {
+      filters.isResolved = true;
+    } else if (query.isResolved !== undefined) {
+      filters.isResolved = query.isResolved === "true";
+    }
+
     if (query.severity) filters.severity = query.severity as AlertSeverity;
     if (query.alertType) filters.alertType = query.alertType as AlertType;
     if (query.deviceId) filters.deviceId = query.deviceId;
+    if (query.search) filters.search = query.search;
+    if (query.from) filters.from = new Date(query.from);
+    if (query.to) {
+      const to = new Date(query.to);
+      to.setHours(23, 59, 59, 999);
+      filters.to = to;
+    }
+    if (user && user.role !== "ADMIN") filters.userId = user.userId;
 
     const { alerts, total } = await repo.findAll(filters, pagination.skip, pagination.limit);
     return { alerts, pagination: buildPaginationMeta(total, pagination) };
@@ -40,6 +63,10 @@ export class AlertService {
 ) {
   return repo.getSummary(deviceId, user);
 }
+
+  async getStats(user?: { userId: string; role: string }) {
+    return repo.getStats(user);
+  }
 
   // ---------- Create (Manual/Webhook) ----------
   async createAlert(body: {
@@ -69,6 +96,15 @@ export class AlertService {
     if (alert.isResolved) throw Object.assign(new Error("Alert is already resolved"), { status: 400 });
 
     return repo.resolve(id, userId);
+  }
+
+  async acknowledgeAlert(id: string, userId: string) {
+    const alert = await prisma.alert.findUnique({ where: { id } });
+    if (!alert) throw Object.assign(new Error("Alert not found"), { status: 404 });
+    if (alert.isResolved) throw Object.assign(new Error("Resolved alerts cannot be acknowledged"), { status: 400 });
+    if (alert.isAcknowledged) return alert;
+
+    return repo.acknowledge(id, userId);
   }
 
   // ---------- Delete ----------

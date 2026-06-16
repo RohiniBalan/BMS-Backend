@@ -95,6 +95,7 @@ model User {
 
   // Relations
   alerts        Alert[]              @relation("ResolvedAlerts")
+  acknowledgedAlerts Alert[]         @relation("AcknowledgedAlerts")
   auditLogs     AuditLog[]
   devices       Device[]             @relation("UserDevices")
   registrations DeviceRegistration[] @relation("AssignedDevices")
@@ -244,9 +245,14 @@ model Alert {
   alertType  AlertType
   severity   AlertSeverity
   message    String
+  isAcknowledged Boolean       @default(false)
+  acknowledgedAt DateTime?
   isResolved Boolean       @default(false)
   resolvedAt DateTime?
   createdAt  DateTime      @default(now())
+
+  acknowledgedById String?
+  acknowledgedBy   User?   @relation("AcknowledgedAlerts", fields: [acknowledgedById], references: [id])
 
   resolvedById String?
   resolvedBy   User?   @relation("ResolvedAlerts", fields: [resolvedById], references: [id])
