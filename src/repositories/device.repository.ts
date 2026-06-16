@@ -115,6 +115,26 @@ export class DeviceRepository {
     return prisma.device.update({ where: { id }, data: { status } });
   }
 
+  // ---------- Find non-OFFLINE devices with no telemetry in last N minutes ----------
+  async findStaleDevices(staleMinutes: number) {
+    const cutoff = new Date(Date.now() - staleMinutes * 60 * 1000);
+    const activeDevices = await prisma.device.findMany({
+      where: { status: { not: DeviceStatus.OFFLINE } },
+      select: { id: true, deviceName: true },
+    });
+    if (activeDevices.length === 0) return [];
+    const recentTelemetry = await prisma.telemetry.findMany({
+      where: {
+        deviceId: { in: activeDevices.map((d) => d.id) },
+        recordedAt: { gte: cutoff },
+      },
+      select: { deviceId: true },
+      distinct: ["deviceId"],
+    });
+    const recentIds = new Set(recentTelemetry.map((t) => t.deviceId));
+    return activeDevices.filter((d) => !recentIds.has(d.id));
+  }
+
   // ---------- Map endpoint (only devices with coords) ----------
   async findWithCoordinates() {
     return prisma.device.findMany({

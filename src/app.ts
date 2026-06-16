@@ -21,6 +21,7 @@ import liveStreamRoutes from "./routes/liveStream.routes";
 import userRoutes from "./routes/user.routes";
 
 import { errorHandler } from "./middleware/errorHandler";
+import { startDeviceScheduler } from "./scheduler/device.scheduler";
 
 const app = express();
 
@@ -71,5 +72,7 @@ app.use((req: Request, res: Response) => {
 
 // Global error handler (must be last)
 app.use(errorHandler);
+
+startDeviceScheduler();
 
 export default app;

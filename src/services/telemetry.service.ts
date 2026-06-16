@@ -1,10 +1,13 @@
 import { TelemetryRepository } from "../repositories/telemetry.repository";
 import { DeviceRepository } from "../repositories/device.repository";
+import { AlertRepository } from "../repositories/alert.repository";
 import { parsePagination, buildPaginationMeta } from "../utils/pagination";
-import { Prisma } from "@prisma/client";
+import { AlertSeverity, AlertType, DeviceStatus, Prisma } from "@prisma/client";
+import prisma from "../prisma/prisma";
 
 const repo = new TelemetryRepository();
 const deviceRepo = new DeviceRepository();
+const alertRepo = new AlertRepository();
 
 export class TelemetryService {
   // ---------- Single ingest ----------
@@ -19,7 +22,6 @@ export class TelemetryService {
     acceleration?: number;
     recordedAt?: string;
   }) {
-    // Validate device exists
     const device = await deviceRepo.findById(body.deviceId);
     if (!device) throw Object.assign(new Error("Device not found"), { status: 404 });
 
@@ -34,7 +36,99 @@ export class TelemetryService {
       acceleration: body.acceleration,
       recordedAt: body.recordedAt ? new Date(body.recordedAt) : undefined,
     };
-    return repo.create(data);
+    const telemetry = await repo.create(data);
+
+    await this.processAlerts(body.deviceId, device.deviceType, body.soc, body.voltage, body.temperature);
+
+    return telemetry;
+  }
+
+  // ---------- Alert processing pipeline (called after each ingest) ----------
+  private async processAlerts(
+    deviceId: string,
+    deviceType: string,
+    soc: number,
+    voltage: number,
+    temperature: number,
+  ) {
+    // Load temperature threshold from ThermalSafetyConfig (fallback: 70°C)
+    const thermalConfig = await prisma.thermalSafetyConfig.findFirst({
+      where: { vehicleName: { equals: deviceType, mode: "insensitive" } },
+      select: { otpThreshold: true },
+    });
+    const tempThreshold = thermalConfig?.otpThreshold ?? 70;
+
+    // Load voltage thresholds from ChemistryConfig (fallback: 4.2V / 2.5V)
+    const chemConfig = await prisma.chemistryConfig.findFirst({
+      where: { vehicleModel: { equals: deviceType, mode: "insensitive" } },
+      select: { chargeCutoffVoltage: true, dischargeCutoffVoltage: true },
+    });
+    const maxVoltage = chemConfig?.chargeCutoffVoltage ?? 4.2;
+    const minVoltage = chemConfig?.dischargeCutoffVoltage ?? 2.5;
+
+    type Rule = {
+      type: AlertType;
+      severity: AlertSeverity;
+      message: string;
+      triggered: boolean;
+    };
+
+    const rules: Rule[] = [
+      {
+        type: AlertType.HIGH_TEMPERATURE,
+        severity: AlertSeverity.CRITICAL,
+        message: `Temperature ${temperature}°C exceeded threshold ${tempThreshold}°C`,
+        triggered: temperature > tempThreshold,
+      },
+      {
+        type: AlertType.LOW_BATTERY,
+        severity: AlertSeverity.WARNING,
+        message: `Battery SOC is low: ${soc}%`,
+        triggered: soc < 20,
+      },
+      {
+        type: AlertType.OVERVOLTAGE,
+        severity: AlertSeverity.CRITICAL,
+        message: `Voltage ${voltage}V exceeded configured limit ${maxVoltage}V`,
+        triggered: voltage > maxVoltage,
+      },
+      {
+        type: AlertType.UNDERVOLTAGE,
+        severity: AlertSeverity.WARNING,
+        message: `Voltage ${voltage}V below configured limit ${minVoltage}V`,
+        triggered: voltage < minVoltage,
+      },
+    ];
+
+    for (const rule of rules) {
+      if (rule.triggered) {
+        // Create only if no unresolved alert of the same type already exists
+        const existing = await alertRepo.findUnresolved(deviceId, rule.type);
+        if (!existing) {
+          await alertRepo.create({
+            device: { connect: { id: deviceId } },
+            alertType: rule.type,
+            severity: rule.severity,
+            message: rule.message,
+          });
+        }
+      } else {
+        // Values returned to normal — auto-resolve the alert
+        await alertRepo.resolveByDeviceAndType(deviceId, rule.type);
+      }
+    }
+
+    // Telemetry arrived → device is reachable; resolve any CONNECTION_LOST alert
+    await alertRepo.resolveByDeviceAndType(deviceId, AlertType.CONNECTION_LOST);
+
+    // Update device status: WARNING if any active alerts remain, else ONLINE
+    const activeAlertCount = await prisma.alert.count({
+      where: { deviceId, isResolved: false },
+    });
+    await deviceRepo.updateStatus(
+      deviceId,
+      activeAlertCount > 0 ? DeviceStatus.WARNING : DeviceStatus.ONLINE,
+    );
   }
 
   // ---------- Bulk ingest ----------

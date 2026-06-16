@@ -289,6 +289,14 @@ export class AlertRepository {
     return prisma.alert.delete({ where: { id } });
   }
 
+  // ---------- Auto-resolve unresolved alerts for a device+type ----------
+  async resolveByDeviceAndType(deviceId: string, alertType: AlertType): Promise<void> {
+    await prisma.alert.updateMany({
+      where: { deviceId, alertType, isResolved: false },
+      data: { isResolved: true, resolvedAt: new Date() },
+    });
+  }
+
   // ---------- Fetch data for auto-check ----------
   // We need latest telemetry per device, and potentially their device config for thresholds.
   // We can join device and any configs we have.
