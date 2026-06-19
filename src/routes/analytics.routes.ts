@@ -16,10 +16,12 @@ router.use(authorize("ADMIN", "USER"));
 // ---------- Analytics ----------
 router.get("/soc-trend", validate(trendSchema), ctrl.getSocTrend.bind(ctrl));
 router.get("/temperature-trend", validate(trendSchema), ctrl.getTemperatureTrend.bind(ctrl));
+router.get("/voltage-trend", validate(trendSchema), ctrl.getVoltageTrend.bind(ctrl));
+router.get("/current-trend", validate(trendSchema), ctrl.getCurrentTrend.bind(ctrl));
 router.get("/fleet-summary", validate(fleetSummarySchema), ctrl.getFleetSummary.bind(ctrl));
-router.get(
-  "/health-popup",
-  ctrl.getHealthPopupData.bind(ctrl)
-);
+router.get("/alert-analytics", validate(fleetSummarySchema), ctrl.getAlertAnalytics.bind(ctrl));
+router.get("/device-comparison", ctrl.getDeviceComparison.bind(ctrl));
+router.get("/user-analytics", ctrl.getUserAnalytics.bind(ctrl));
+router.get("/health-popup", ctrl.getHealthPopupData.bind(ctrl));
 
 export default router;

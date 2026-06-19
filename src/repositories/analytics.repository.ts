@@ -235,7 +235,7 @@ export class AnalyticsRepository {
   //   }));
   // }
 
-  async getTrend(type: "soc" | "temperature", deviceId?: string, range: string = "24h", user?: { id: string; role: string }) {
+  async getTrend(type: "soc" | "temperature" | "voltage" | "current", deviceId?: string, range: string = "24h", user?: { id: string; role: string }) {
     let from = new Date();
     let trunc = "hour";
 
@@ -252,7 +252,11 @@ export class AnalyticsRepository {
 
    const deviceFilter =
   user && user.role !== "ADMIN"
-    ? Prisma.sql`AND "deviceId" IN (SELECT id FROM "Device" WHERE "userId" = ${user.id})`
+    ? Prisma.sql`AND "deviceId" IN (
+        SELECT id FROM "Device" WHERE "userId" = ${user.id}
+        UNION
+        SELECT "deviceId" FROM "DeviceRegistration" WHERE "userId" = ${user.id}
+      )`
     : Prisma.empty;
 
     const deviceWhere = deviceId ? Prisma.sql`AND "deviceId" = ${deviceId}` : Prisma.empty;
@@ -328,6 +332,171 @@ export class AnalyticsRepository {
       orderBy: { recordedAt: "desc" },
       take: 10000, // safety limit for JSON
       include: { device: { select: { deviceName: true } } },
+    });
+  }
+
+  // ---------- User Device Analytics ----------
+  async getUserDeviceAnalytics(userId: string, deviceId: string, range: string = "24h") {
+    const device = await prisma.device.findFirst({
+      where: {
+        id: deviceId,
+        OR: [{ userId }, { registration: { userId } }],
+      },
+      include: {
+        telemetry: { orderBy: { recordedAt: "desc" }, take: 1 },
+      },
+    });
+
+    if (!device) return null;
+
+    const latest = device.telemetry[0];
+    const soc = latest?.soc ?? 0;
+    const temperature = latest?.temperature ?? 0;
+
+    let healthScore = 100;
+    if (soc < 20) healthScore -= 25;
+    else if (soc < 40) healthScore -= 10;
+    if (temperature > 50) healthScore -= 25;
+    else if (temperature > 40) healthScore -= 10;
+    if (device.status === "OFFLINE") healthScore -= 15;
+    else if (device.status === "WARNING") healthScore -= 8;
+    healthScore = Math.max(0, healthScore);
+
+    // Reuse existing getTrend — ownership already validated above
+    const [socTrend, tempTrend, voltageTrend, currentTrend] = await Promise.all([
+      this.getTrend("soc", deviceId, range),
+      this.getTrend("temperature", deviceId, range),
+      this.getTrend("voltage", deviceId, range),
+      this.getTrend("current", deviceId, range),
+    ]);
+
+    let from = new Date();
+    if (range === "24h") from = new Date(Date.now() - 24 * 60 * 60 * 1000);
+    else if (range === "7d") from = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+    else if (range === "30d") from = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+
+    const alertBase = { deviceId, createdAt: { gte: from } };
+
+    const [totalAlerts, criticalAlerts, warningAlerts, alertsByType] = await Promise.all([
+      prisma.alert.count({ where: alertBase }),
+      prisma.alert.count({ where: { ...alertBase, severity: AlertSeverity.CRITICAL } }),
+      prisma.alert.count({ where: { ...alertBase, severity: AlertSeverity.WARNING } }),
+      prisma.alert.groupBy({
+        by: ["alertType"],
+        where: alertBase,
+        _count: { id: true },
+        orderBy: { _count: { id: "desc" } },
+        take: 5,
+      }),
+    ]);
+
+    const monthlyFrom = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+    const [monthlyAgg, monthlyAlerts] = await Promise.all([
+      prisma.telemetry.aggregate({
+        where: { deviceId, recordedAt: { gte: monthlyFrom } },
+        _avg: { soc: true, temperature: true, voltage: true },
+        _max: { temperature: true },
+      }),
+      prisma.alert.count({ where: { deviceId, createdAt: { gte: monthlyFrom } } }),
+    ]);
+
+    return {
+      device: {
+        id: device.id,
+        name: device.deviceName,
+        status: device.status,
+        soc,
+        voltage: latest?.voltage ?? 0,
+        temperature,
+        current: latest?.current ?? 0,
+        capacity: device.totalCapacityKWh,
+        healthScore,
+      },
+      trends: { soc: socTrend, temperature: tempTrend, voltage: voltageTrend, current: currentTrend },
+      alerts: {
+        total: totalAlerts,
+        critical: criticalAlerts,
+        warning: warningAlerts,
+        info: Math.max(0, totalAlerts - criticalAlerts - warningAlerts),
+        byType: alertsByType.map((a) => ({ type: a.alertType, count: a._count.id })),
+      },
+      monthly: {
+        avgSoc: monthlyAgg._avg.soc != null ? +monthlyAgg._avg.soc.toFixed(1) : 0,
+        avgTemp: monthlyAgg._avg.temperature != null ? +monthlyAgg._avg.temperature.toFixed(1) : 0,
+        maxTemp: monthlyAgg._max.temperature != null ? +monthlyAgg._max.temperature.toFixed(1) : 0,
+        avgVoltage: monthlyAgg._avg.voltage != null ? +monthlyAgg._avg.voltage.toFixed(1) : 0,
+        alertCount: monthlyAlerts,
+        healthScore,
+      },
+    };
+  }
+
+  // ---------- Alert Analytics ----------
+  async getAlertAnalytics(range: string = "30d") {
+    let from = new Date();
+    if (range === "24h") from = new Date(Date.now() - 24 * 60 * 60 * 1000);
+    else if (range === "7d") from = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+    else if (range === "30d") from = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+
+    const [bySeverity, byType] = await Promise.all([
+      prisma.alert.groupBy({
+        by: ["severity"],
+        where: { createdAt: { gte: from } },
+        _count: { id: true },
+      }),
+      prisma.alert.groupBy({
+        by: ["alertType"],
+        where: { createdAt: { gte: from } },
+        _count: { id: true },
+        orderBy: { _count: { id: "desc" } },
+        take: 6,
+      }),
+    ]);
+
+    return {
+      bySeverity: bySeverity.map((s) => ({ severity: s.severity, count: s._count.id })),
+      byType: byType.map((t) => ({ type: t.alertType, count: t._count.id })),
+    };
+  }
+
+  // ---------- Device Comparison ----------
+  async getDeviceComparison() {
+    const devices = await prisma.device.findMany({
+      include: {
+        telemetry: {
+          orderBy: { recordedAt: "desc" },
+          take: 1,
+        },
+      },
+      take: 30,
+      orderBy: { createdAt: "desc" },
+    });
+
+    return devices.map((d) => {
+      const t = d.telemetry[0];
+      const soc = t?.soc ?? 0;
+      const temperature = t?.temperature ?? 0;
+      const voltage = t?.voltage ?? 0;
+      const current = t?.current ?? 0;
+
+      let healthScore = 100;
+      if (soc < 20) healthScore -= 25;
+      else if (soc < 40) healthScore -= 10;
+      if (temperature > 50) healthScore -= 25;
+      else if (temperature > 40) healthScore -= 10;
+      if (d.status === "OFFLINE") healthScore -= 15;
+      else if (d.status === "WARNING") healthScore -= 8;
+
+      return {
+        id: d.id,
+        name: d.deviceName,
+        status: d.status,
+        soc,
+        voltage,
+        temperature,
+        current,
+        healthScore: Math.max(0, healthScore),
+      };
     });
   }
 

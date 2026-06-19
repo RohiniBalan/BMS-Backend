@@ -19,6 +19,26 @@ export class AnalyticsService {
     return repo.getTrend("temperature", deviceId, range);
   }
 
+  async getVoltageTrend(deviceId?: string, range?: string) {
+    return repo.getTrend("voltage", deviceId, range);
+  }
+
+  async getCurrentTrend(deviceId?: string, range?: string) {
+    return repo.getTrend("current", deviceId, range);
+  }
+
+  async getAlertAnalytics(range?: string) {
+    return repo.getAlertAnalytics(range);
+  }
+
+  async getDeviceComparison() {
+    return repo.getDeviceComparison();
+  }
+
+  async getUserDeviceAnalytics(userId: string, deviceId: string, range?: string) {
+    return repo.getUserDeviceAnalytics(userId, deviceId, range);
+  }
+
   async getFleetSummary(range?: string) {
     return repo.getFleetSummary(range);
   }

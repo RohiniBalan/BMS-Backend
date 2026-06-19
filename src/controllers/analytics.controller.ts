@@ -42,6 +42,34 @@ export class AnalyticsController {
     } catch (err) { next(err); }
   }
 
+  async getVoltageTrend(req: Request, res: Response, next: NextFunction) {
+    try {
+      const data = await service.getVoltageTrend(req.query.deviceId as string, req.query.range as string);
+      return sendSuccess(res, "Voltage trend retrieved", data);
+    } catch (err) { next(err); }
+  }
+
+  async getCurrentTrend(req: Request, res: Response, next: NextFunction) {
+    try {
+      const data = await service.getCurrentTrend(req.query.deviceId as string, req.query.range as string);
+      return sendSuccess(res, "Current trend retrieved", data);
+    } catch (err) { next(err); }
+  }
+
+  async getAlertAnalytics(req: Request, res: Response, next: NextFunction) {
+    try {
+      const data = await service.getAlertAnalytics(req.query.range as string);
+      return sendSuccess(res, "Alert analytics retrieved", data);
+    } catch (err) { next(err); }
+  }
+
+  async getDeviceComparison(req: Request, res: Response, next: NextFunction) {
+    try {
+      const data = await service.getDeviceComparison();
+      return sendSuccess(res, "Device comparison retrieved", data);
+    } catch (err) { next(err); }
+  }
+
   async getDailyReport(req: Request, res: Response, next: NextFunction) {
     try {
       const data = await service.getDailyReport(
@@ -85,6 +113,27 @@ export class AnalyticsController {
     } catch (err) {
       next(err);
     }
+  }
+
+  async getUserAnalytics(req: Request, res: Response, next: NextFunction) {
+    try {
+      const user = (req as any).user;
+      const deviceId = req.query.deviceId as string;
+      const range = req.query.range as string;
+
+      if (!deviceId) {
+        return sendSuccess(res, "No device specified", null);
+      }
+
+      const data = await service.getUserDeviceAnalytics(user.id, deviceId, range);
+
+      if (!data) {
+        res.status(403);
+        return sendSuccess(res, "Device not found or not assigned to you", null);
+      }
+
+      return sendSuccess(res, "User analytics retrieved", data);
+    } catch (err) { next(err); }
   }
 
   // Get Health popup data
