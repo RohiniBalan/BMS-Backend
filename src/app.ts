@@ -19,6 +19,8 @@ import packRoutes from "./routes/pack.routes";
 import liveTelemetryRoutes from "./routes/liveTelemetry.routes";
 import liveStreamRoutes from "./routes/liveStream.routes";
 import userRoutes from "./routes/user.routes";
+import optionsRoutes from "./routes/options.routes";
+import auditRoutes from "./routes/audit.routes";
 
 import { errorHandler } from "./middleware/errorHandler";
 import { startDeviceScheduler } from "./scheduler/device.scheduler";
@@ -60,6 +62,8 @@ app.use("/api/v1", thermalRoutes);
 app.use("/api/v1/live-telemetry", liveTelemetryRoutes);
 app.use("/api/v1/live", liveStreamRoutes);
 app.use("/api/v1/users", userRoutes)
+app.use("/api/v1/options", optionsRoutes)
+app.use("/api/v1/audit", auditRoutes)
 
 
 // 404 handler
